@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>donut by claude</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: black;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      canvas {
+        display: block;
+      }
+      #donutCanvas {
+        width: 50vw;
+        height: 46vw;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="donutCanvas"></canvas>
+    <script>
+      const CANVAS_WIDTH = 110;
+      const CANVAS_HEIGHT = 50;
+
+      const COLOR_CODES = [
+        "#FF0000",
+        "#00FF00",
+        "#FFFF00",
+        "#0000FF",
+        "#FF00FF",
+        "#00FFFF",
+        "#FF4500",
+        "#00FF7F",
+        "#FFD700",
+        "#4169E1",
+        "#FF1493",
+        "#00CED1",
+      ];
+
+      const LUMINANCE_CHARS = ".:-=+*#%@";
+
+      const canvas = document.getElementById("donutCanvas");
+      const ctx = canvas.getContext("2d");
+
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+
+      function renderDonut(A, B) {
+        const output = Array(CANVAS_HEIGHT)
+          .fill()
+          .map(() => Array(CANVAS_WIDTH).fill(" "));
+        const zBuffer = Array(CANVAS_HEIGHT)
+          .fill()
+          .map(() => Array(CANVAS_WIDTH).fill(-1e9));
+
+        const tubeRadius = 1;
+        const donutRadius = 2;
+        const viewerDistance = 5;
+        const projectionFactor =
+          (CANVAS_WIDTH * viewerDistance * 3) /
+          (8 * (tubeRadius + donutRadius));
+
+        for (let theta = 0; theta < 2 * Math.PI; theta += 0.07) {
+          const cosTheta = Math.cos(theta),
+            sinTheta = Math.sin(theta);
+          for (let phi = 0; phi < 2 * Math.PI; phi += 0.02) {
+            const cosPhi = Math.cos(phi),
+              sinPhi = Math.sin(phi);
+
+            const circleX = donutRadius + tubeRadius * cosTheta;
+            const circleY = tubeRadius * sinTheta;
+
+            const x =
+              circleX *
+                (Math.cos(B) * cosPhi + Math.sin(A) * Math.sin(B) * sinPhi) -
+              circleY * Math.cos(A) * Math.sin(B);
+            const y =
+              circleX *
+                (Math.sin(B) * cosPhi - Math.sin(A) * Math.cos(B) * sinPhi) +
+              circleY * Math.cos(A) * Math.cos(B);
+            const z =
+              viewerDistance +
+              Math.cos(A) * circleX * sinPhi +
+              circleY * Math.sin(A);
+            const invZ = 1 / z;
+
+            const xp = Math.floor(
+              CANVAS_WIDTH / 2 + projectionFactor * invZ * x
+            );
+            const yp = Math.floor(
+              CANVAS_HEIGHT / 2 - (projectionFactor * invZ * y) / 2
+            );
+
+            const luminance =
+              cosPhi * cosTheta * Math.sin(B) -
+              Math.cos(A) * cosTheta * sinPhi -
+              Math.sin(A) * sinTheta +
+              0.5;
+            if (
+              luminance > 0 &&
+              xp >= 0 &&
+              xp < CANVAS_WIDTH &&
+              yp >= 0 &&
+              yp < CANVAS_HEIGHT
+            ) {
+              if (invZ > zBuffer[yp][xp]) {
+                zBuffer[yp][xp] = invZ;
+                let luminanceIndex = Math.floor(
+                  luminance * (LUMINANCE_CHARS.length - 1)
+                );
+                luminanceIndex = Math.max(
+                  0,
+                  Math.min(luminanceIndex, LUMINANCE_CHARS.length - 1)
+                );
+                const colorIndex = Math.floor(
+                  (((theta + phi) % (2 * Math.PI)) / (2 * Math.PI)) *
+                    COLOR_CODES.length
+                );
+                output[yp][xp] = {
+                  char: LUMINANCE_CHARS[luminanceIndex],
+                  color: COLOR_CODES[colorIndex],
+                };
+              }
+            }
+          }
+        }
+
+        return output;
+      }
+
+      let A = 0,
+        B = 0;
+
+      function animate() {
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const donut = renderDonut(A, B);
+        const cellWidth = canvas.width / CANVAS_WIDTH;
+        const cellHeight = canvas.height / CANVAS_HEIGHT;
+
+        for (let y = 0; y < CANVAS_HEIGHT; y++) {
+          for (let x = 0; x < CANVAS_WIDTH; x++) {
+            if (donut[y][x] !== " ") {
+              ctx.fillStyle = donut[y][x].color;
+              ctx.fillText(donut[y][x].char, x * cellWidth, y * cellHeight);
+            }
+          }
+        }
+
+        A += 0.04;
+        B += 0.02;
+
+        requestAnimationFrame(animate);
+      }
+
+      ctx.font = `${Math.floor(canvas.height / CANVAS_HEIGHT)}px monospace`;
+      ctx.textBaseline = "top";
+
+      animate();
+    </script>
+  </body>
+</html>
